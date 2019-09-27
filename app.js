@@ -15,7 +15,24 @@ io.on('connection', function(socket) {
     onlineUsers++;
 
     socket.on('disconnect', function() {
+        console.log('a user disconnect');
         onlineUsers--;
+    });
+
+    socket.on('web-listener', function( title ) {
+        console.log( "Title: " + title );
+    });
+
+    socket.on('web-title', function( title ) {
+        console.log( "Title: " + title );
+    });
+
+    socket.on('web-referrer', function( referrer ) {
+        console.log( "Referrer: " + referrer )
+    });
+
+    socket.on('show-online', function( a ) {
+        console.log( "Onlines: " + onlineUsers )
     });
 
 });
