@@ -1,38 +1,54 @@
-var express = require('express');
-var app = express();
-var http = require('http').createServer(app);
-var io = require('socket.io')(http);
-var onlineUsers = 0;
+var
+    express = require('express'),
+    app = express(),
+    http = require('http').createServer(app),
+    io = require('socket.io')(http),
+    onlineUsersCount = 0,
+    clientList = [],
+    pageTitle = "",
+    pageReferrer = "",
+    pageUrl = "";
 
-http.listen(3000, function(){
-    console.log('listening on *:3000');
-});
+http.listen(3000, function(){ console.log('listening on *:3000'); });
 
 app.use( express.static( __dirname + '/public' ) );
 
 io.on('connection', function(socket) {
 
-    onlineUsers++;
+    pageUrl = socket.request.headers.referer;
+
+    onlineUsersCount++;
 
     socket.on('disconnect', function() {
-        console.log('a user disconnect');
-        onlineUsers--;
+
+        onlineUsersCount--;
+
+        for( var i = 0; i < clientList.length; i++ ) {
+
+            if ( clientList[i].id == socket.id ) {
+                clientList.splice( i, 1 );
+            }
+
+        }
+
     });
 
-    socket.on('web-listener', function( title ) {
-        console.log( "Title: " + title );
+    socket.on('submit-data', function() {
+
+        clientList.push(
+            {
+                "id": socket.id,
+                "title": pageTitle,
+                "url": pageUrl,
+                "referrer": pageReferrer,
+                "time": Math.floor(new Date() / 1000),
+            }
+        );
+
     });
 
-    socket.on('web-title', function( title ) {
-        console.log( "Title: " + title );
-    });
-
-    socket.on('web-referrer', function( referrer ) {
-        console.log( "Referrer: " + referrer )
-    });
-
-    socket.on('show-online', function( a ) {
-        console.log( "Onlines: " + onlineUsers )
-    });
+    socket.on('set-web-title', function( title ) { pageTitle = title });
+    socket.on('set-web-referrer', function( referrer ) { pageReferrer = referrer });
+    socket.on('call-get-data', function() { io.sockets.emit( 'set-data', { onlineUsersCount, clientList } ); });
 
 });
