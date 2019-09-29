@@ -3,52 +3,70 @@ var
     app = express(),
     http = require('http').createServer(app),
     io = require('socket.io')(http),
-    onlineUsersCount = 0,
     clientList = [],
-    pageTitle = "",
-    pageReferrer = "",
-    pageUrl = "";
+    socketId;
 
-http.listen(3000, function(){ console.log('listening on *:3000'); });
+http.listen( 3000 );
 
 app.use( express.static( __dirname + '/public' ) );
 
 io.on('connection', function(socket) {
 
-    pageUrl = socket.request.headers.referer;
+    if ( socket.handshake.query.type == "admin" ) {
 
-    onlineUsersCount++;
+        console.log("Admin Here");
 
-    socket.on('disconnect', function() {
+        socket.on('call-get-data', function () {
+            io.sockets.emit('set-data', { clientList });
+        });
 
-        onlineUsersCount--;
+    } else {
 
-        for( var i = 0; i < clientList.length; i++ ) {
+        socket.on('disconnect', function () {
 
-            if ( clientList[i].id == socket.id ) {
-                clientList.splice( i, 1 );
-            }
+            socketId = getSocketId( socket );
 
+            for ( let i = 0; i < clientList.length; i++ )
+                if ( clientList[i].id === socketId )
+                    clientList.splice(i, 1);
+
+        });
+
+        socket.on('submit-data', function( data ) {
+
+            clientList.push({
+                "id":       getSocketId( socket ),
+                "title":    data.pageTitle,
+                "url":      socket.request.headers.referer,
+                "referrer": data.pageReferrer,
+                "time":     Math.floor(new Date() / 1000),
+            });
+
+        });
+
+        socketId = getSocketId( socket );
+
+        if ( !getSocketIdFromCookie( socket ) ) {
+            if (socketId !== socket.id)
+                io.sockets.emit('set-cookie', socketId);
         }
 
-    });
-
-    socket.on('submit-data', function() {
-
-        clientList.push(
-            {
-                "id": socket.id,
-                "title": pageTitle,
-                "url": pageUrl,
-                "referrer": pageReferrer,
-                "time": Math.floor(new Date() / 1000),
-            }
-        );
-
-    });
-
-    socket.on('set-web-title', function( title ) { pageTitle = title });
-    socket.on('set-web-referrer', function( referrer ) { pageReferrer = referrer });
-    socket.on('call-get-data', function() { io.sockets.emit( 'set-data', { onlineUsersCount, clientList } ); });
+    }
 
 });
+
+let
+    getSocketId = function( socket ) {
+
+        if ( getSocketIdFromCookie( socket ) )
+            return getSocketIdFromCookie( socket );
+        else
+            return socket.id;
+
+    },
+    getSocketIdFromCookie = function( socket ) {
+
+        if ( typeof socket.handshake.query.socket_cookie !== "undefined" && socket.handshake.query.socket_cookie !== "null" && socket.handshake.query.socket_cookie.length > 0 )
+            return socket.handshake.query.socket_cookie;
+
+    };
